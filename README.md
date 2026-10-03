@@ -6,7 +6,7 @@ Zotero Bridge uses the [documented Zotero local API](https://www.zotero.org/supp
 
 ## Install
 
-Requires **Zotero 10 or newer**, local API version 3, and desktop **Obsidian 1.5 or newer**. Version 1.0.0 was tested with Zotero **10.0.5** and Obsidian **1.13.7** on Windows. macOS and Linux have not yet been tested.
+Requires **Zotero 10 or newer**, local API version 3, and desktop **Obsidian 1.5 or newer**. Version 1.0.1 was tested with Zotero **10.0.5** and Obsidian **1.13.7** on Windows. Automated tests also run on Linux; macOS and Linux desktop use have not yet been tested.
 
 1. Download the plugin bundle from the [latest GitHub release](https://github.com/seegullrider/zotero-obsidian-bridge/releases/latest).
 2. Close Obsidian. Create `<vault>/.obsidian/plugins/zotero-bridge/` and put `main.js`, `manifest.json`, and `styles.css` directly inside it. Extract the release ZIP first if you downloaded the ZIP.
@@ -88,7 +88,7 @@ pnpm test
 pnpm build
 ```
 
-Run `pnpm release` to build the install ZIP and SHA-256 checksums. Pushing a version tag such as `v1.0.0` runs the checked build and publishes its five release assets on GitHub.
+Run `pnpm release` to build the install ZIP and SHA-256 checksums. Pushing a version tag such as `v1.0.1` runs the Windows and Linux checks before publishing its five release assets on GitHub.
 
 The esbuild platform binary is an optional dependency; dependency lifecycle scripts are not needed. Install `dist/main.js`, `dist/manifest.json`, and `dist/styles.css` in your vault's plugin folder. `dist/bridge-core.cjs` is a standalone bundle for development diagnostics and is not required by Obsidian.
 

@@ -8,7 +8,10 @@ permissions:
   contents: read
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   release:
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -23,8 +26,6 @@ jobs:
           package-manager-cache: false
       - uses: pnpm/action-setup@v6
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm check
-      - run: pnpm test
       - run: pnpm release
       - name: Publish installable plugin
         env:

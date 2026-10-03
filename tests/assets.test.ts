@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink, realpath } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { assetPath, resolveAssets } from '../src/assets';
@@ -43,6 +44,26 @@ test('active PNG wins over legacy PNG for the same key', async () => {
     await file(path.join(config.dataDirectory, 'cache', 'library', 'ABC12345.png'));
     await file(path.join(config.legacyCacheDirectory, 'library', 'ABC12345.png'), new Uint8Array([...png, 2]));
     const [asset] = await resolveAssets(bundle(), config);
+    assert.equal(asset.status, 'available');
+    assert.deepEqual(asset.bytes, png);
+  });
+});
+test('Windows DOS short-name cache roots resolve to the same PNG', {skip: process.platform !== 'win32'}, async t => {
+  await fixture(async (root, config) => {
+    await file(path.join(config.dataDirectory, 'cache', 'library', 'ABC12345.png'));
+    const result = spawnSync('cmd.exe', ['/d', '/c', `for %I in ("${root}") do @echo %~sI`], {
+      encoding: 'utf8', windowsVerbatimArguments: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const shortRoot = result.stdout.trim();
+    assert.ok(path.isAbsolute(shortRoot));
+    const canonicalRoot = await realpath(root);
+    if (path.relative(shortRoot, canonicalRoot) === '') {
+      t.skip('This volume does not provide DOS short-name aliases.');
+      return;
+    }
+    assert.equal(await realpath(shortRoot), canonicalRoot);
+    const [asset] = await resolveAssets(bundle(), {...config, dataDirectory: path.join(shortRoot, 'active')});
     assert.equal(asset.status, 'available');
     assert.deepEqual(asset.bytes, png);
   });
@@ -92,6 +113,14 @@ test('refuses directory junctions and symlink cache files', async () => {
     await file(path.join(real, 'ABC12345.png'));
     await mkdir(path.join(config.dataDirectory, 'cache'), { recursive: true });
     await symlink(real, path.join(config.dataDirectory, 'cache', 'library'), process.platform === 'win32' ? 'junction' : 'dir');
+    await assert.rejects(resolveAssets(bundle(), config), /symlink or junction/);
+  });
+});
+test('canonicalizing the cache root cannot hide a configured directory junction', async () => {
+  await fixture(async (root, config) => {
+    const real = path.join(root, 'real-data');
+    await file(path.join(real, 'cache', 'library', 'ABC12345.png'));
+    await symlink(real, config.dataDirectory, process.platform === 'win32' ? 'junction' : 'dir');
     await assert.rejects(resolveAssets(bundle(), config), /symlink or junction/);
   });
 });

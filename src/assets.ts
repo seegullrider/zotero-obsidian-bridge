@@ -42,6 +42,7 @@ async function readPng(cacheRoot: string, relative: string): Promise<Uint8Array 
   // still symlink traversal. An absent path is ordinary missing cache data.
   const parsed = path.parse(filename);
   const parts = filename.slice(parsed.root.length).split(path.sep).filter(Boolean);
+  const parents: Array<{filename: string; ino: number; dev: number}> = [];
   let current = parsed.root;
   try {
     for (const part of parts) {
@@ -50,10 +51,19 @@ async function readPng(cacheRoot: string, relative: string): Promise<Uint8Array 
       if (stat.isSymbolicLink()) throw new Error(`Refusing image cache symlink or junction: ${current}`);
       if (current !== filename && !stat.isDirectory()) throw new Error(`Image cache parent is not a directory: ${current}`);
       if (current === filename && !stat.isFile()) throw new Error(`Image cache is not a regular file: ${current}`);
+      if (current !== filename) parents.push({filename: current, ino: stat.ino, dev: stat.dev});
     }
+    // Windows realpath expands DOS short names (e.g. RUNNER~1). Compare against
+    // the canonical root rather than rejecting a legitimate spelling alias.
+    // Ancestors were checked independently so canonicalizing cannot hide links.
+    const canonicalRoot = await realpath(root);
     const actual = await realpath(filename);
-    if (path.relative(filename, actual) !== '') throw new Error(`Image cache resolves outside its expected path: ${filename}`);
+    if (path.relative(path.resolve(canonicalRoot, within), actual) !== '') {
+      throw new Error(`Image cache resolves outside its expected path: ${filename}`);
+    }
+    await checkParents();
     const before = await lstat(filename);
+    if (before.isSymbolicLink() || !before.isFile()) throw new Error(`Image cache changed before opening: ${filename}`);
     const handle = await open(filename, 'r');
     try {
       const opened = await handle.stat();
@@ -66,6 +76,7 @@ async function readPng(cacheRoot: string, relative: string): Promise<Uint8Array 
           || after.size !== opened.size || after.mtimeMs !== opened.mtimeMs) {
         throw new Error(`Image cache changed while reading: ${filename}`);
       }
+      await checkParents();
       if (bytes.length < PNG_SIGNATURE.length || !PNG_SIGNATURE.every((byte, index) => bytes[index] === byte)) {
         throw new Error(`Invalid PNG image cache: ${filename}`);
       }
@@ -78,6 +89,15 @@ async function readPng(cacheRoot: string, relative: string): Promise<Uint8Array 
     // as missing could replace valid generated data with misleading placeholders.
     if (missing(error)) return undefined;
     throw error;
+  }
+
+  async function checkParents(): Promise<void> {
+    for (const parent of parents) {
+      const stat = await lstat(parent.filename);
+      if (stat.isSymbolicLink() || !stat.isDirectory() || stat.ino !== parent.ino || stat.dev !== parent.dev) {
+        throw new Error(`Image cache parent changed while reading: ${parent.filename}`);
+      }
+    }
   }
 }
 

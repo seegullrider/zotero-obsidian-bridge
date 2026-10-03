@@ -1,6 +1,6 @@
 {
   "name": "zotero-obsidian-bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "A small desktop Obsidian plugin for one-way Zotero imports",
   "type": "module",
