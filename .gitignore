@@ -1,0 +1,19 @@
+node_modules/
+dist/
+dist-tests/
+releases/
+*.log
+local-settings.json
+data.json
+.env
+.env.*
+.obsidian/
+backups/
+staging/
+
+# Recovery tools contain private vault paths and library identities.
+# Only the generic build, test and release helpers belong in this project.
+scripts/*
+!scripts/build.mjs
+!scripts/test.mjs
+!scripts/release.mjs
